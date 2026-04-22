@@ -6,6 +6,8 @@
   <title>五線譜リーディングアプリ</title>
   <!-- Tailwind CSS を読み込む (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 音楽記号（ト音記号など）を文字化けさせないためのWebフォントを読み込む -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Music&display=swap" rel="stylesheet">
   <style>
     /* === アニメーションの定義 === */
     @keyframes flyCurve {
@@ -108,7 +110,8 @@
         <line x1="0" y1="100" x2="500" y2="100" stroke="#000" stroke-width="3" />
         <line x1="0" y1="125" x2="500" y2="125" stroke="#000" stroke-width="3" />
         <line x1="0" y1="150" x2="500" y2="150" stroke="#000" stroke-width="3" />
-        <text x="20" y="140" font-size="130" font-family="serif" fill="#000">𝄞</text>
+        <!-- フォントファミリーに Noto Music と、各OSの標準シンボルフォントを指定する -->
+        <text x="20" y="140" font-size="130" font-family="'Noto Music', 'Segoe UI Symbol', 'Apple Symbols', serif" fill="#000">𝄞</text>
         <g id="target-note-g" class="transition-all duration-300"></g>
       </svg>
       <div id="ui-added-score" class="absolute top-10 left-[60%] bg-white border-2 border-gray-200 rounded-[50%] px-4 py-2 font-bold text-gray-700 shadow-md z-30 hidden">
