@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>五線譜リーディングアプリ</title>
+  <title>音名クイズ</title>
   <!-- Tailwind CSS を読み込む (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- 音楽記号（ト音記号など）を文字化けさせないためのWebフォントを読み込む -->
@@ -130,11 +130,41 @@
       <!-- JSで動的に生成 -->
     </div>
 
-    <!-- === タイトル画面 (新規追加) === -->
+    <!-- === タイトル画面 === -->
     <div id="overlay-title" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#a6e6ff]">
-      <!-- タイトルロゴ風 -->
-      <div class="text-4xl md:text-5xl font-black text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.4)] mb-10 text-center stroke-text tracking-wider">
-        五線譜リーディング
+      
+      <!-- タイトルと猫 -->
+      <div class="flex items-center justify-center gap-2 mb-10">
+        <!-- 猫のキャラクタ -->
+        <div class="transform -rotate-6 animate-bounce">
+          <svg width="80" height="96" viewBox="0 0 120 150">
+            <path d="M 20 100 Q 0 120 10 140 Q 20 150 30 130 Q 40 110 30 90" fill="#FF8C00" stroke="#000" stroke-width="2"/>
+            <ellipse cx="60" cy="100" rx="30" ry="40" fill="#FF8C00" stroke="#000" stroke-width="2" transform="rotate(-15, 60, 100)" />
+            <ellipse cx="55" cy="105" rx="20" ry="30" fill="#FFF" transform="rotate(-15, 55, 105)" />
+            <rect x="40" y="130" width="15" height="20" rx="5" fill="#FF8C00" stroke="#000" stroke-width="2" />
+            <rect x="70" y="125" width="15" height="20" rx="5" fill="#FF8C00" stroke="#000" stroke-width="2" />
+            <path d="M 40 90 Q 20 80 30 70 Q 40 60 50 80" fill="#FF8C00" stroke="#000" stroke-width="2"/>
+            <path d="M 80 85 Q 100 70 95 60 Q 90 50 75 75" fill="#FF8C00" stroke="#000" stroke-width="2"/>
+            <ellipse cx="60" cy="50" rx="35" ry="30" fill="#FF8C00" stroke="#000" stroke-width="2" />
+            <polygon points="30,35 20,10 45,25" fill="#FF8C00" stroke="#000" stroke-width="2" />
+            <polygon points="90,35 100,10 75,25" fill="#FF8C00" stroke="#000" stroke-width="2" />
+            <ellipse cx="60" cy="55" rx="25" ry="18" fill="#FFF" />
+            <ellipse cx="45" cy="45" rx="8" ry="12" fill="#FFF" stroke="#000" stroke-width="2" />
+            <ellipse cx="75" cy="45" rx="8" ry="12" fill="#FFF" stroke="#000" stroke-width="2" />
+            <circle cx="48" cy="45" r="3" fill="#000" />
+            <circle cx="72" cy="45" r="3" fill="#000" />
+            <ellipse cx="60" cy="55" rx="4" ry="3" fill="#000" />
+            <path d="M 50 65 Q 60 75 70 65" fill="none" stroke="#000" stroke-width="2" />
+            <line x1="20" y1="50" x2="35" y2="52" stroke="#000" stroke-width="1" />
+            <line x1="20" y1="58" x2="35" y2="56" stroke="#000" stroke-width="1" />
+            <line x1="85" y1="52" x2="100" y2="50" stroke="#000" stroke-width="1" />
+            <line x1="85" y1="56" x2="100" y2="58" stroke="#000" stroke-width="1" />
+          </svg>
+        </div>
+        <!-- タイトルロゴ風 -->
+        <div class="text-5xl md:text-6xl font-black text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.4)] text-center stroke-text tracking-wider">
+          音名クイズ
+        </div>
       </div>
       
       <!-- モード選択 -->
