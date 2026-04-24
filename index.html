@@ -272,6 +272,7 @@
       stage: 1,
       gameState: 'title', // 'title', 'playing', 'result', 'allclear'
       questionCount: 0,
+      maxQuestions: 10, // ステージごとに動的に決定される問題数
       score: 0,
       currentPoints: 0,
       currentNote: null,
@@ -664,21 +665,42 @@
     }
 
     // === ゲームロジック ===
-    function generateQuestions(stageNotes) {
+    
+    // 【改善】各音が必ず1回は出題されるように、プールからランダムに取り出すアルゴリズムに変更
+    function generateQuestions(stageNotes, maxQuestions) {
       let list = [];
-      let remaining = [...stageNotes];
-      for (let i = 0; i < 10; i++) {
-        const mustPick = stageNotes.length <= 10 ? remaining.length >= (10 - i) : true; 
-        let candidates = mustPick && remaining.length > 0 ? remaining : stageNotes;
+      let pool = [...stageNotes];
+      
+      for (let i = 0; i < maxQuestions; i++) {
+        // プールが空になったら（全音が出題されたら）再度補充する
+        if (pool.length === 0) {
+          pool = [...stageNotes];
+        }
+        
+        let validPool = pool;
+        // 直前の問題と同じ音が出ないようにプールから除外
         if (i > 0) {
           const prevId = list[i - 1].id;
-          let valid = candidates.filter(n => n.id !== prevId);
-          if (valid.length === 0) valid = stageNotes.filter(n => n.id !== prevId);
-          candidates = valid;
+          validPool = pool.filter(n => n.id !== prevId);
+          
+          // もし除外した結果、プールが空になってしまったら（最後の1つが直前の音と同じ場合）、
+          // 新たにプールを補充して再度除外する
+          if (validPool.length === 0) {
+             pool = [...stageNotes];
+             validPool = pool.filter(n => n.id !== prevId);
+          }
         }
-        const picked = candidates[Math.floor(Math.random() * candidates.length)];
+        
+        // 有効なプールの中からランダムに選ぶ
+        const pickedIndex = Math.floor(Math.random() * validPool.length);
+        const picked = validPool[pickedIndex];
         list.push(picked);
-        remaining = remaining.filter(n => n.id !== picked.id);
+        
+        // 選んだ音をプールから削除する
+        const removeIndex = pool.findIndex(n => n.id === picked.id);
+        if (removeIndex !== -1) {
+          pool.splice(removeIndex, 1);
+        }
       }
       return list;
     }
@@ -728,7 +750,10 @@
       const stageNotesArr = mode === 'range' ? RANGE_STAGES[targetStage - 1] : CHALLENGE_STAGES[targetStage - 1];
       const targetNotes = stageNotesArr.map(id => ALL_NOTES[id]);
 
-      state.questionList = generateQuestions(targetNotes);
+      // 【改善】問題数を「10問 または 音符の数の多い方」に自動設定
+      state.maxQuestions = Math.max(10, targetNotes.length);
+
+      state.questionList = generateQuestions(targetNotes, state.maxQuestions);
       generateBalloons(targetNotes);
       renderStaffNote(null);
       startBGM();
@@ -785,7 +810,7 @@
 
     function scheduleNextQuestion() {
       setTimeout(() => {
-        if (state.questionCount >= 10) {
+        if (state.questionCount >= state.maxQuestions) {
           showResultScreen();
         } else {
           state.questionCount++;
@@ -825,25 +850,24 @@
       const elConfetti = document.getElementById('confetti-container');
       
       elResult.classList.remove('hidden');
+
+      // 【改善】問題数に応じたクリア基準の自動計算 (平均80%のスピードでクリア)
+      const clearScore = state.maxQuestions * 800;
+      const superScore = state.maxQuestions * 900;
       
-      // モード名を見出しに表示するように変更
       const modeName = state.mode === 'range' ? '音域モード' : 'チャレンジモード';
       let html = `
         <h2 class="text-2xl md:text-3xl font-black text-gray-800 mb-2">${modeName}<br/>ステージ ${state.stage} 終了！</h2>
         <div class="text-6xl font-black text-orange-500 mb-4">${state.score} <span class="text-2xl text-gray-600">点</span></div>
       `;
       
-      if (state.score >= 8000) {
-        // --- 進行状況の保存 (チャレンジモードの場合のみ) ---
+      if (state.score >= clearScore) {
         if (state.mode === 'challenge') {
           saveProgress(state.stage + 1);
         }
 
-        // 成功演出
         let btnColor = '';
-        let btnTextHtml = '';
-
-        if (state.score >= 9000) {
+        if (state.score >= superScore) {
           playSuperFanfare();
           elConfetti.innerHTML = Array.from({length: 60}).map(() => {
             const c = ['#FF5733', '#33FF57', '#3357FF', '#F3FF33', '#FF33F3', '#FFD700'][Math.floor(Math.random() * 6)];
@@ -856,11 +880,10 @@
         } else {
           playFanfare();
           elConfetti.classList.add('hidden');
-          html += `<p class="text-xl font-bold text-green-500 mb-6">目標の8000点達成！<br/>おめでとう！</p>`;
+          html += `<p class="text-xl font-bold text-green-500 mb-6">目標の${clearScore}点達成！<br/>おめでとう！</p>`;
           btnColor = 'bg-green-500 hover:bg-green-600 border-b-4 border-green-700 shadow-[0_4px_0_#15803d] active:translate-y-[4px] active:shadow-none';
         }
 
-        // モードによるボタンの出し分け
         if (state.mode === 'range') {
           html += `<button class="w-full py-4 ${btnColor} text-white text-2xl font-bold rounded-xl transition-all" onclick="showTitleScreen()">タイトルへ戻る</button>`;
         } else {
@@ -869,11 +892,10 @@
         }
 
       } else {
-        // 失敗演出
         playFailSound();
         elConfetti.classList.add('hidden');
         html += `
-          <p class="text-lg font-bold text-red-500 mb-6">8000点に届かなかった...<br/>もう一度挑戦しよう！</p>
+          <p class="text-lg font-bold text-red-500 mb-6">${clearScore}点に届かなかった...<br/>もう一度挑戦しよう！</p>
           <div class="flex flex-col gap-3">
             <button class="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white text-2xl font-bold rounded-xl shadow-[0_4px_0_#1d4ed8] active:translate-y-[4px] active:shadow-none transition-all" onclick="startGame('${state.mode}', ${state.stage})">もういちど挑戦する</button>
             <button class="w-full py-3 bg-gray-400 hover:bg-gray-500 text-white text-xl font-bold rounded-xl shadow-[0_4px_0_#4b5563] active:translate-y-[4px] active:shadow-none transition-all" onclick="showTitleScreen()">タイトルへ戻る</button>
