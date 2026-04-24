@@ -594,11 +594,9 @@
     function renderStaffNote(note) {
       const g = document.getElementById('target-note-g');
       if (!note) {
-        document.getElementById('staff-container').classList.add('hidden');
         g.innerHTML = '';
         return;
       }
-      document.getElementById('staff-container').classList.remove('hidden');
       
       let html = '';
       const lines = [];
@@ -776,6 +774,7 @@
       state.questionList = generateQuestions(mode, targetStage);
       
       generateBalloons(targetNotes);
+      document.getElementById('staff-container').classList.remove('hidden');
       renderStaffNote(null);
       startBGM();
 
