@@ -272,7 +272,6 @@
       stage: 1,
       gameState: 'title', // 'title', 'playing', 'result', 'allclear'
       questionCount: 0,
-      maxQuestions: 10, // ステージごとに動的に決定される問題数
       score: 0,
       currentPoints: 0,
       currentNote: null,
@@ -316,7 +315,6 @@
       const rangeContainer = document.getElementById('stage-btns-range');
       let rangeHtml = '';
       for (let i = 1; i <= 5; i++) {
-        // ステージに登場する音のラベルを結合 (例: "ドレミ")
         const label = RANGE_STAGES[i-1].map(id => ALL_NOTES[id].label).join('');
         rangeHtml += `
           <button onclick="startGame('range', ${i})" class="bg-white hover:bg-blue-50 text-blue-600 rounded-xl shadow-[0_4px_0_#93c5fd] border-2 border-blue-200 active:translate-y-[4px] active:shadow-none transition-all flex flex-col items-center justify-center py-2 px-1">
@@ -331,13 +329,10 @@
       const challengeContainer = document.getElementById('stage-btns-challenge');
       let challengeHtml = '';
       for (let i = 1; i <= 12; i++) {
-        // ステージに登場する音のラベルを結合
         const label = CHALLENGE_STAGES[i-1].map(id => ALL_NOTES[id].label).join('');
-        // 文字数が多い場合は文字サイズを小さくする
         const textClass = label.length > 10 ? "text-[10px]" : "text-xs";
         
         if (i <= state.maxUnlockedChallenge) {
-          // 解放済みのステージ
           challengeHtml += `
             <button onclick="startGame('challenge', ${i})" class="bg-white hover:bg-orange-50 text-orange-600 rounded-xl shadow-[0_4px_0_#fdba74] border-2 border-orange-200 active:translate-y-[4px] active:shadow-none transition-all flex flex-col items-center justify-center py-2 px-1 overflow-hidden">
               <span class="text-base font-bold">Ch. ${i}</span>
@@ -345,7 +340,6 @@
             </button>
           `;
         } else {
-          // 未解放のステージ（ロック表示）
           challengeHtml += `
             <div class="bg-gray-200 text-gray-400 rounded-xl border-2 border-gray-300 flex flex-col items-center justify-center py-2 px-1 overflow-hidden opacity-80 cursor-not-allowed">
               <span class="text-base font-bold">🔒 Ch. ${i}</span>
@@ -361,7 +355,7 @@
       state.gameState = 'title';
       stopBGM();
       
-      initStageSelectUI(); // 進行状況に合わせてボタンを再生成
+      initStageSelectUI();
 
       document.getElementById('overlay-title').classList.remove('hidden');
       document.getElementById('mode-select').classList.remove('hidden');
@@ -386,9 +380,8 @@
       }
     }
 
-    // ロード時に実行
     window.onload = () => {
-      loadProgress(); // 進行状況を読み込み
+      loadProgress();
       initStageSelectUI();
       showTitleScreen();
     };
@@ -666,42 +659,68 @@
 
     // === ゲームロジック ===
     
-    // 【改善】各音が必ず1回は出題されるように、プールからランダムに取り出すアルゴリズムに変更
-    function generateQuestions(stageNotes, maxQuestions) {
-      let list = [];
-      let pool = [...stageNotes];
+    // 【改善】問題数を10問に固定し、10個を超える場合は新出音を優先して残りをランダム抽出
+    function generateQuestions(mode, stage) {
+      const stageNotesArr = mode === 'range' ? RANGE_STAGES[stage - 1] : CHALLENGE_STAGES[stage - 1];
+      const targetNotes = stageNotesArr.map(id => ALL_NOTES[id]);
       
-      for (let i = 0; i < maxQuestions; i++) {
-        // プールが空になったら（全音が出題されたら）再度補充する
-        if (pool.length === 0) {
-          pool = [...stageNotes];
+      let list = [];
+      
+      if (targetNotes.length > 10) {
+        // 10個を超える場合：10問すべて異なる音にする
+        let newNotes = [];
+        let oldNotes = [...targetNotes];
+        
+        // チャレンジモードでステージ2以降の場合、前のステージから増えた音を特定する
+        if (mode === 'challenge' && stage > 1) {
+          const prevStageNotesArr = CHALLENGE_STAGES[stage - 2];
+          newNotes = targetNotes.filter(n => !prevStageNotesArr.includes(n.id));
+          oldNotes = targetNotes.filter(n => prevStageNotesArr.includes(n.id));
         }
         
-        let validPool = pool;
-        // 直前の問題と同じ音が出ないようにプールから除外
-        if (i > 0) {
-          const prevId = list[i - 1].id;
-          validPool = pool.filter(n => n.id !== prevId);
+        // 古い音をシャッフル
+        oldNotes.sort(() => Math.random() - 0.5);
+        
+        // 新しい音を先に入れ、残りを古い音から取って合計10個にする
+        let selectedNotes = [...newNotes];
+        const needed = 10 - selectedNotes.length;
+        selectedNotes = selectedNotes.concat(oldNotes.slice(0, needed));
+        
+        // 最後に10個をシャッフルして出題順を決める
+        selectedNotes.sort(() => Math.random() - 0.5);
+        list = selectedNotes;
+        
+      } else {
+        // 10個以下の場合：全種類を最低1回出しつつ、10問に満たない分はランダム補充（連続出題は避ける）
+        let pool = [...targetNotes];
+        
+        for (let i = 0; i < 10; i++) {
+          if (pool.length === 0) {
+            pool = [...targetNotes];
+          }
           
-          // もし除外した結果、プールが空になってしまったら（最後の1つが直前の音と同じ場合）、
-          // 新たにプールを補充して再度除外する
-          if (validPool.length === 0) {
-             pool = [...stageNotes];
-             validPool = pool.filter(n => n.id !== prevId);
+          let validPool = pool;
+          if (i > 0) {
+            const prevId = list[i - 1].id;
+            validPool = pool.filter(n => n.id !== prevId);
+            
+            if (validPool.length === 0) {
+               pool = [...targetNotes];
+               validPool = pool.filter(n => n.id !== prevId);
+            }
+          }
+          
+          const pickedIndex = Math.floor(Math.random() * validPool.length);
+          const picked = validPool[pickedIndex];
+          list.push(picked);
+          
+          const removeIndex = pool.findIndex(n => n.id === picked.id);
+          if (removeIndex !== -1) {
+            pool.splice(removeIndex, 1);
           }
         }
-        
-        // 有効なプールの中からランダムに選ぶ
-        const pickedIndex = Math.floor(Math.random() * validPool.length);
-        const picked = validPool[pickedIndex];
-        list.push(picked);
-        
-        // 選んだ音をプールから削除する
-        const removeIndex = pool.findIndex(n => n.id === picked.id);
-        if (removeIndex !== -1) {
-          pool.splice(removeIndex, 1);
-        }
       }
+      
       return list;
     }
 
@@ -739,21 +758,18 @@
       state.feedback = null;
       state.showNote = false;
 
-      // ヘッダーの表示切り替え
       const stageDisplay = mode === 'range' ? `音域 ${state.stage}` : `Ch. ${state.stage}`;
       document.getElementById('ui-stage').innerText = stageDisplay;
       
       updateScore(0);
       setCatMessage('第1問！');
       
-      // モードに応じた音符セットを取得
       const stageNotesArr = mode === 'range' ? RANGE_STAGES[targetStage - 1] : CHALLENGE_STAGES[targetStage - 1];
       const targetNotes = stageNotesArr.map(id => ALL_NOTES[id]);
 
-      // 【改善】問題数を「10問 または 音符の数の多い方」に自動設定
-      state.maxQuestions = Math.max(10, targetNotes.length);
-
-      state.questionList = generateQuestions(targetNotes, state.maxQuestions);
+      // 【変更】問題リストの生成。10問固定で生成される。
+      state.questionList = generateQuestions(mode, targetStage);
+      
       generateBalloons(targetNotes);
       renderStaffNote(null);
       startBGM();
@@ -810,7 +826,8 @@
 
     function scheduleNextQuestion() {
       setTimeout(() => {
-        if (state.questionCount >= state.maxQuestions) {
+        // 【変更】問題数を10問で判定
+        if (state.questionCount >= 10) {
           showResultScreen();
         } else {
           state.questionCount++;
@@ -851,9 +868,9 @@
       
       elResult.classList.remove('hidden');
 
-      // 【改善】問題数に応じたクリア基準の自動計算 (平均80%のスピードでクリア)
-      const clearScore = state.maxQuestions * 800;
-      const superScore = state.maxQuestions * 900;
+      // 【変更】クリア基準を8000点で固定
+      const clearScore = 8000;
+      const superScore = 9000;
       
       const modeName = state.mode === 'range' ? '音域モード' : 'チャレンジモード';
       let html = `
