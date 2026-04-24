@@ -131,10 +131,10 @@
     </div>
 
     <!-- === タイトル画面 === -->
-    <div id="overlay-title" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#a6e6ff]">
+    <div id="overlay-title" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#a6e6ff] overflow-y-auto pt-10 pb-10">
       
       <!-- タイトルと猫 -->
-      <div class="flex items-center justify-center gap-2 mb-10">
+      <div class="flex items-center justify-center gap-2 mb-10 shrink-0 mt-8">
         <!-- 猫のキャラクタ -->
         <div class="transform -rotate-6 animate-bounce">
           <svg width="80" height="96" viewBox="0 0 120 150">
@@ -168,7 +168,7 @@
       </div>
       
       <!-- モード選択 -->
-      <div id="mode-select" class="w-full max-w-md flex flex-col gap-6 px-4">
+      <div id="mode-select" class="w-full max-w-md flex flex-col gap-6 px-4 shrink-0">
         <button onclick="showStageSelect('range')" class="py-5 px-6 bg-blue-500 hover:bg-blue-400 text-white text-3xl font-bold rounded-2xl shadow-[0_8px_0_#1e40af] active:translate-y-[8px] active:shadow-none transition-all">
           音域モード
           <span class="block text-sm font-normal mt-2 opacity-90">決まった音域を練習しよう！（全5ステージ）</span>
@@ -180,18 +180,20 @@
       </div>
 
       <!-- 音域モード ステージ選択 -->
-      <div id="stage-select-range" class="w-full max-w-lg hidden flex-col items-center px-4">
+      <div id="stage-select-range" class="w-full max-w-lg hidden flex-col items-center px-4 pb-10 shrink-0">
         <h3 class="text-2xl font-bold text-blue-800 mb-6 bg-white/90 px-6 py-2 rounded-full shadow-sm border-2 border-blue-200">音域モード</h3>
-        <div id="stage-btns-range" class="flex flex-wrap justify-center gap-4 mb-8">
+        <!-- 音域モードは文字が少ないので2列のグリッドで配置 -->
+        <div id="stage-btns-range" class="grid grid-cols-2 gap-3 w-full mb-8">
           <!-- JSで生成 -->
         </div>
         <button onclick="showTitleScreen()" class="py-3 px-8 bg-gray-500 hover:bg-gray-400 text-white text-xl font-bold rounded-full shadow-[0_4px_0_#374151] active:translate-y-[4px] active:shadow-none transition-all">タイトルへ戻る</button>
       </div>
 
       <!-- チャレンジモード ステージ選択 -->
-      <div id="stage-select-challenge" class="w-full max-w-lg hidden flex-col items-center px-4">
+      <div id="stage-select-challenge" class="w-full max-w-xl hidden flex-col items-center px-4 pb-10 shrink-0">
         <h3 class="text-2xl font-bold text-orange-800 mb-6 bg-white/90 px-6 py-2 rounded-full shadow-sm border-2 border-orange-200">チャレンジモード</h3>
-        <div id="stage-btns-challenge" class="flex flex-wrap justify-center gap-3 mb-8 px-4">
+        <!-- チャレンジモードは量が多いので2〜3列のグリッドで配置 -->
+        <div id="stage-btns-challenge" class="grid grid-cols-2 sm:grid-cols-3 gap-2 w-full mb-8">
           <!-- JSで生成 -->
         </div>
         <button onclick="showTitleScreen()" class="py-3 px-8 bg-gray-500 hover:bg-gray-400 text-white text-xl font-bold rounded-full shadow-[0_4px_0_#374151] active:translate-y-[4px] active:shadow-none transition-all">タイトルへ戻る</button>
@@ -276,12 +278,36 @@
       showNote: false,
       feedback: null,
       questionList: [],
-      startTime: null
+      startTime: null,
+      maxUnlockedChallenge: 1 // 解放済みの最大チャレンジステージ
     };
 
     let audioCtx = null;
     let bgmTimerId = null;
     let rAF_TimerId = null;
+
+    // === セーブデータ管理 (localStorage) ===
+    function loadProgress() {
+      try {
+        const saved = localStorage.getItem('oto-quiz-progress');
+        if (saved) {
+          state.maxUnlockedChallenge = parseInt(saved, 10);
+        }
+      } catch (e) {
+        console.warn("セーブデータの読み込みに失敗しました", e);
+      }
+    }
+
+    function saveProgress(unlockedStage) {
+      if (unlockedStage > state.maxUnlockedChallenge && unlockedStage <= 12) {
+        state.maxUnlockedChallenge = unlockedStage;
+        try {
+          localStorage.setItem('oto-quiz-progress', state.maxUnlockedChallenge.toString());
+        } catch (e) {
+          console.warn("セーブデータの保存に失敗しました", e);
+        }
+      }
+    }
 
     // === 初期化とタイトル画面 ===
     function initStageSelectUI() {
@@ -289,7 +315,14 @@
       const rangeContainer = document.getElementById('stage-btns-range');
       let rangeHtml = '';
       for (let i = 1; i <= 5; i++) {
-        rangeHtml += `<button onclick="startGame('range', ${i})" class="w-16 h-16 bg-white hover:bg-blue-50 text-blue-600 text-2xl font-bold rounded-2xl shadow-[0_4px_0_#93c5fd] border-2 border-blue-200 active:translate-y-[4px] active:shadow-none transition-all flex items-center justify-center">${i}</button>`;
+        // ステージに登場する音のラベルを結合 (例: "ドレミ")
+        const label = RANGE_STAGES[i-1].map(id => ALL_NOTES[id].label).join('');
+        rangeHtml += `
+          <button onclick="startGame('range', ${i})" class="bg-white hover:bg-blue-50 text-blue-600 rounded-xl shadow-[0_4px_0_#93c5fd] border-2 border-blue-200 active:translate-y-[4px] active:shadow-none transition-all flex flex-col items-center justify-center py-2 px-1">
+            <span class="text-lg font-bold">ステージ ${i}</span>
+            <span class="text-sm text-gray-500 mt-1">${label}</span>
+          </button>
+        `;
       }
       rangeContainer.innerHTML = rangeHtml;
 
@@ -297,7 +330,28 @@
       const challengeContainer = document.getElementById('stage-btns-challenge');
       let challengeHtml = '';
       for (let i = 1; i <= 12; i++) {
-        challengeHtml += `<button onclick="startGame('challenge', ${i})" class="w-14 h-14 bg-white hover:bg-orange-50 text-orange-600 text-xl font-bold rounded-2xl shadow-[0_4px_0_#fdba74] border-2 border-orange-200 active:translate-y-[4px] active:shadow-none transition-all flex items-center justify-center">${i}</button>`;
+        // ステージに登場する音のラベルを結合
+        const label = CHALLENGE_STAGES[i-1].map(id => ALL_NOTES[id].label).join('');
+        // 文字数が多い場合は文字サイズを小さくする
+        const textClass = label.length > 10 ? "text-[10px]" : "text-xs";
+        
+        if (i <= state.maxUnlockedChallenge) {
+          // 解放済みのステージ
+          challengeHtml += `
+            <button onclick="startGame('challenge', ${i})" class="bg-white hover:bg-orange-50 text-orange-600 rounded-xl shadow-[0_4px_0_#fdba74] border-2 border-orange-200 active:translate-y-[4px] active:shadow-none transition-all flex flex-col items-center justify-center py-2 px-1 overflow-hidden">
+              <span class="text-base font-bold">Ch. ${i}</span>
+              <span class="${textClass} text-gray-500 mt-1 break-all text-center leading-tight px-1">${label}</span>
+            </button>
+          `;
+        } else {
+          // 未解放のステージ（ロック表示）
+          challengeHtml += `
+            <div class="bg-gray-200 text-gray-400 rounded-xl border-2 border-gray-300 flex flex-col items-center justify-center py-2 px-1 overflow-hidden opacity-80 cursor-not-allowed">
+              <span class="text-base font-bold">🔒 Ch. ${i}</span>
+              <span class="${textClass} mt-1 break-all text-center leading-tight px-1">クリアで解放</span>
+            </div>
+          `;
+        }
       }
       challengeContainer.innerHTML = challengeHtml;
     }
@@ -306,6 +360,8 @@
       state.gameState = 'title';
       stopBGM();
       
+      initStageSelectUI(); // 進行状況に合わせてボタンを再生成
+
       document.getElementById('overlay-title').classList.remove('hidden');
       document.getElementById('mode-select').classList.remove('hidden');
       document.getElementById('stage-select-range').classList.add('hidden');
@@ -331,6 +387,7 @@
 
     // ロード時に実行
     window.onload = () => {
+      loadProgress(); // 進行状況を読み込み
       initStageSelectUI();
       showTitleScreen();
     };
@@ -769,12 +826,19 @@
       
       elResult.classList.remove('hidden');
       
+      // モード名を見出しに表示するように変更
+      const modeName = state.mode === 'range' ? '音域モード' : 'チャレンジモード';
       let html = `
-        <h2 class="text-3xl font-black text-gray-800 mb-2">ステージ ${state.stage} 終了！</h2>
+        <h2 class="text-2xl md:text-3xl font-black text-gray-800 mb-2">${modeName}<br/>ステージ ${state.stage} 終了！</h2>
         <div class="text-6xl font-black text-orange-500 mb-4">${state.score} <span class="text-2xl text-gray-600">点</span></div>
       `;
       
       if (state.score >= 8000) {
+        // --- 進行状況の保存 (チャレンジモードの場合のみ) ---
+        if (state.mode === 'challenge') {
+          saveProgress(state.stage + 1);
+        }
+
         // 成功演出
         let btnColor = '';
         let btnTextHtml = '';
